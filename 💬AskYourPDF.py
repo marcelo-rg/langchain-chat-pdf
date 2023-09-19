@@ -86,6 +86,7 @@ def upload_pdf():
 
         if col2.button('Remove PDF'):
             del st.session_state.uploaded_pdf
+            del st.session_state.knowledge_base
             return None
 
         return st.session_state.uploaded_pdf
