@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import re
+import os
 from constants import research_prompts, similarity_search_queries, pdf_template
 from langchain.chat_models import ChatOpenAI
 from langchain.chains import LLMChain
@@ -9,8 +10,6 @@ from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores import Chroma
 from langchain.text_splitter import CharacterTextSplitter
 from pypdf import PdfReader
-import os
-from dotenv import load_dotenv
 
 persist_directory = os.environ.get('PERSIST_DIRECTORY')
 
@@ -172,7 +171,6 @@ def get_api_key():
 
 
 def main():
-    load_dotenv()
     # Initialize the embeddings and set the page config
     embeddings = OpenAIEmbeddings()
     st.set_page_config(
@@ -199,7 +197,7 @@ def main():
 
                 # Check if embeddings are already in the session state
                 if 'knowledge_base' not in st.session_state:
-                    st.session_state.knowledge_base = create_persistent_embeddings(chunks, embeddings)
+                    st.session_state.knowledge_base = create_embeddings(chunks, embeddings)
 
         # 3. Get a list of research prompts
         prompts = research_prompts["Summarizing and Analysis"][:3]

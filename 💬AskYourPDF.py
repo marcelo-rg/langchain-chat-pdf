@@ -1,7 +1,6 @@
 import os
 import requests
 import re
-from dotenv import load_dotenv
 import streamlit as st
 from pypdf import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
@@ -126,7 +125,6 @@ def validate_api_key(secret_key):
             st.error("Unauthorized API key.")
             return
 
-        # st.success("Your API key is valid.")
         return True
 
 
@@ -139,24 +137,23 @@ def get_api_key():
             if is_valid:
                 st.success("API key is valid!")
                 st.session_state.api_key = api_key
-                return True  # Indicates the key is valid and you can proceed
+                return True
             else:
                 st.error("Invalid API key. Please try again.")
-                return False  # Indicates the key is invalid
+                return False
     else:
-        return True  # If API key is already in session state
+        return True
 
 
 
 def main():
-    load_dotenv()
     st.set_page_config(
         page_title="Ask your PDF",
         # page_icon="📄",
     )
     st.header("Ask your PDF 💬")
     
-    if get_api_key():  # If the API key is valid, proceed
+    if get_api_key(): 
         
         os.environ['OPENAI_API_KEY'] = st.session_state.api_key
         embeddings = OpenAIEmbeddings()
@@ -175,8 +172,9 @@ def main():
                     
                 # Check if embeddings are already in the session state
                 if not st.session_state.knowledge_base:
-                    st.session_state.knowledge_base = create_persistent_embeddings(chunks, embeddings)
-                    
+                    # change to create_persistent_embeddings(chunks, embeddings) if you want to store the embeddings locally
+                    st.session_state.knowledge_base = create_embeddings(chunks, embeddings) 
+
                 ask_question(st.session_state.knowledge_base)
 
 
