@@ -172,8 +172,6 @@ def get_api_key():
 
 
 def main():
-    # Initialize the embeddings and set the page config
-    embeddings = OpenAIEmbeddings()
     st.set_page_config(
         page_title="Research Paper",
         # page_icon="🧪"
