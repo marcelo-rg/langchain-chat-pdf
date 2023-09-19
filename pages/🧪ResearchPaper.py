@@ -1,4 +1,6 @@
 import streamlit as st
+import requests
+import re
 from constants import research_prompts, similarity_search_queries, pdf_template
 from langchain.chat_models import ChatOpenAI
 from langchain.chains import LLMChain
@@ -42,7 +44,6 @@ def run_chain(option):
 
 
 def upload_pdf():
-    st.header("Fast Query Your Paper 🧪")
 
     # If a PDF exists in the session state, display its name and a "Remove PDF" button
     if 'uploaded_pdf' in st.session_state:
@@ -125,47 +126,97 @@ def select_prompt(prompts):
     return option
 
 
+def is_valid_api_key_format(secret_key):
+    return re.match(r'^sk-[a-zA-Z0-9]{32,}$', secret_key)
+
+
+def check_api_key_authorization(secret_key):
+    headers = {
+        'Authorization': f'Bearer {secret_key}'
+    }
+
+    response = requests.get("https://api.openai.com/v1/engines", headers=headers)
+    return response.status_code == 200
+
+
+def validate_api_key(secret_key):
+    if secret_key:
+        if not is_valid_api_key_format(secret_key):
+            st.error("Invalid API key format.")
+            return
+
+        if not check_api_key_authorization(secret_key):
+            st.error("Unauthorized API key.")
+            return
+
+        # st.success("Your API key is valid.")
+        return True
+
+
+
+def get_api_key():
+    if 'api_key' not in st.session_state or not st.session_state.api_key:
+        api_key = st.text_input("Enter your OpenAI API key:", type="password")
+        if api_key:
+            is_valid = validate_api_key(api_key)
+            if is_valid:
+                st.success("API key is valid!")
+                st.session_state.api_key = api_key
+                return True  # Indicates the key is valid and you can proceed
+            else:
+                st.error("Invalid API key. Please try again.")
+                return False  # Indicates the key is invalid
+    else:
+        return True  # If API key is already in session state
+
+
 
 def main():
     load_dotenv()
     # Initialize the embeddings and set the page config
     embeddings = OpenAIEmbeddings()
-    st.set_page_config(page_title="Research Paper",
-                        # page_icon="🧪"
-                    )
+    st.set_page_config(
+        page_title="Research Paper",
+        # page_icon="🧪"
+    )
+    st.header("Fast Query Your Paper 🧪")
 
-    # 1. Upload the PDF
-    pdf = upload_pdf()
-    
-    # 2. Extract text from the PDF, if available
-    if pdf:
-        text = extract_text_from_pdf(pdf)
+    if get_api_key():
+        os.environ['OPENAI_API_KEY'] = st.session_state.api_key
+        embeddings = OpenAIEmbeddings()
 
-        # If the text is successfully extracted, proceed
-        if text:
-            # Split the text into chunks
-            chunks = get_text_chunks(text)
+        # 1. Upload the PDF
+        pdf = upload_pdf()
+        
+        # 2. Extract text from the PDF, if available
+        if pdf:
+            text = extract_text_from_pdf(pdf)
 
-            # Check if embeddings are already in the session state
-            if 'knowledge_base' not in st.session_state:
-                st.session_state.knowledge_base = create_persistent_embeddings(chunks, embeddings)
+            # If the text is successfully extracted, proceed
+            if text:
+                # Split the text into chunks
+                chunks = get_text_chunks(text)
 
-    # 3. Get a list of research prompts
-    prompts = research_prompts["Summarizing and Analysis"][:3]
+                # Check if embeddings are already in the session state
+                if 'knowledge_base' not in st.session_state:
+                    st.session_state.knowledge_base = create_persistent_embeddings(chunks, embeddings)
 
-    # 4. Display prompts and get the selected prompt option
-    option = select_prompt(prompts)
+        # 3. Get a list of research prompts
+        prompts = research_prompts["Summarizing and Analysis"][:3]
 
-    # 5. If 'Run' button is clicked in `select_prompt`, process the prompt
-    if 'selected_prompt' in st.session_state:
-        # Process the selected prompt using the run_chain function
-        output = run_chain(option)
+        # 4. Display prompts and get the selected prompt option
+        option = select_prompt(prompts)
 
-        # Display the output
-        st.write("Output:", output)
+        # 5. If 'Run' button is clicked in `select_prompt`, process the prompt
+        if 'selected_prompt' in st.session_state:
+            # Process the selected prompt using the run_chain function
+            output = run_chain(option)
 
-        # Optionally clear the session state
-        del st.session_state['selected_prompt']
+            # Display the output
+            st.write("Output:", output)
+
+            # Optionally clear the session state
+            del st.session_state['selected_prompt']
 
 
 

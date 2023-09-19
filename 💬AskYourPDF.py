@@ -1,4 +1,6 @@
 import os
+import requests
+import re
 from dotenv import load_dotenv
 import streamlit as st
 from pypdf import PdfReader
@@ -11,11 +13,6 @@ from langchain.callbacks import get_openai_callback
 
 persist_directory = os.environ.get('PERSIST_DIRECTORY')
 
-
-# def upload_pdf():
-#     st.header("Ask your PDF 💬")
-#     pdf = st.file_uploader("Upload your PDF", type="pdf")
-#     return pdf
 
 def extract_text_from_pdf(pdf):
     if pdf is not None:
@@ -81,7 +78,6 @@ def ask_question(knowledge_base):
 
 
 def upload_pdf():
-    st.header("Ask your PDF 💬")
 
     # If a PDF exists in the session state, display its name and a "Remove PDF" button
     if 'uploaded_pdf' in st.session_state:
@@ -107,31 +103,82 @@ def upload_pdf():
         return None
 
 
+def is_valid_api_key_format(secret_key):
+    return re.match(r'^sk-[a-zA-Z0-9]{32,}$', secret_key)
+
+
+def check_api_key_authorization(secret_key):
+    headers = {
+        'Authorization': f'Bearer {secret_key}'
+    }
+
+    response = requests.get("https://api.openai.com/v1/engines", headers=headers)
+    return response.status_code == 200
+
+
+def validate_api_key(secret_key):
+    if secret_key:
+        if not is_valid_api_key_format(secret_key):
+            st.error("Invalid API key format.")
+            return
+
+        if not check_api_key_authorization(secret_key):
+            st.error("Unauthorized API key.")
+            return
+
+        # st.success("Your API key is valid.")
+        return True
+
+
+
+def get_api_key():
+    if 'api_key' not in st.session_state or not st.session_state.api_key:
+        api_key = st.text_input("Enter your OpenAI API key:", type="password")
+        if api_key:
+            is_valid = validate_api_key(api_key)
+            if is_valid:
+                st.success("API key is valid!")
+                st.session_state.api_key = api_key
+                return True  # Indicates the key is valid and you can proceed
+            else:
+                st.error("Invalid API key. Please try again.")
+                return False  # Indicates the key is invalid
+    else:
+        return True  # If API key is already in session state
+
+
+
 def main():
     load_dotenv()
-    embeddings = OpenAIEmbeddings()
     st.set_page_config(
         page_title="Ask your PDF",
         # page_icon="📄",
     )
+    st.header("Ask your PDF 💬")
     
-    pdf = upload_pdf()
-    
-    if pdf:
-        text = extract_text_from_pdf(pdf)
+    if get_api_key():  # If the API key is valid, proceed
         
-        if text:
-            chunks = get_text_chunks(text)
+        os.environ['OPENAI_API_KEY'] = st.session_state.api_key
+        embeddings = OpenAIEmbeddings()
+
+        pdf = upload_pdf()
+        
+        if pdf:
+            text = extract_text_from_pdf(pdf)
             
-            # Initialize st.session_state if not already
-            if not hasattr(st.session_state, "knowledge_base"):
-                st.session_state.knowledge_base = None
+            if text:
+                chunks = get_text_chunks(text)
                 
-            # Check if embeddings are already in the session state
-            if not st.session_state.knowledge_base:
-                st.session_state.knowledge_base = create_persistent_embeddings(chunks, embeddings)
-                
-            ask_question(st.session_state.knowledge_base)
+                # Initialize st.session_state if not already
+                if not hasattr(st.session_state, "knowledge_base"):
+                    st.session_state.knowledge_base = None
+                    
+                # Check if embeddings are already in the session state
+                if not st.session_state.knowledge_base:
+                    st.session_state.knowledge_base = create_persistent_embeddings(chunks, embeddings)
+                    
+                ask_question(st.session_state.knowledge_base)
+
 
 
 if __name__ == '__main__':
