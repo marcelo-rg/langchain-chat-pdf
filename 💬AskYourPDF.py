@@ -5,7 +5,7 @@ import streamlit as st
 from pypdf import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.vectorstores import Chroma
+from langchain.vectorstores import FAISS
 from langchain.chains.question_answering import load_qa_chain
 from langchain.llms import OpenAI
 from langchain.callbacks import get_openai_callback
@@ -42,21 +42,21 @@ def does_vectorstore_exist(persist_directory: str) -> bool:
 
 
 def create_embeddings(chunks, embeddings):
-    knowledge_base = Chroma.from_texts(chunks, embeddings)
+    knowledge_base = FAISS.from_texts(chunks, embeddings)
     return knowledge_base
 
-def create_persistent_embeddings(chunks, embeddings):
-    # Check if vectorstore exists
-    if does_vectorstore_exist(persist_directory):
-        print(f"Embeddings already exist at {persist_directory}. No need to add anything.")
-        knowledge_base = Chroma(persist_directory=persist_directory, embedding_function=embeddings)
-    else:
-        # Create and store locally vectorstore using Chroma
-        print("Creating new vectorstore")
-        knowledge_base = Chroma.from_texts(texts=chunks, embedding=embeddings, persist_directory=persist_directory)
-        knowledge_base.persist()
-        print(f"Ingestion complete! Embeddings created for uploaded file.")
-    return knowledge_base
+# def create_persistent_embeddings(chunks, embeddings):
+#     # Check if vectorstore exists
+#     if does_vectorstore_exist(persist_directory):
+#         print(f"Embeddings already exist at {persist_directory}. No need to add anything.")
+#         knowledge_base = Chroma(persist_directory=persist_directory, embedding_function=embeddings)
+#     else:
+#         # Create and store locally vectorstore using Chroma
+#         print("Creating new vectorstore")
+#         knowledge_base = Chroma.from_texts(texts=chunks, embedding=embeddings, persist_directory=persist_directory)
+#         knowledge_base.persist()
+#         print(f"Ingestion complete! Embeddings created for uploaded file.")
+#     return knowledge_base
 
 
 def ask_question(knowledge_base):
